@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "alex-orders": {
+      "type": "stdio",
+      "command": "/Users/patrickblb/Projects/alex-orders/scripts/mcp.sh",
+      "args": [],
+      "env": {}
+    }
+  }
+}
