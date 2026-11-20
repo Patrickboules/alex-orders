@@ -44,7 +44,7 @@ export interface AdminDoc {
   name: string;
   phone: string; // normalized 01XXXXXXXXX
   passwordHash: string; // bcrypt
-  token?: string; // random login token stored in the "admin_token" cookie
+  tokens?: string[]; // one random login token per signed-in device ("admin_token" cookie), newest last
   createdAt: Date;
 }
 

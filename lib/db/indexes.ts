@@ -14,7 +14,7 @@ export async function ensureIndexes(): Promise<void> {
     participantsCol.createIndex({ token: 1 }, { unique: true, name: "token_unique" }),
 
     adminsCol.createIndex({ phone: 1 }, { unique: true, name: "phone_unique" }),
-    adminsCol.createIndex({ token: 1 }, { sparse: true, name: "token_sparse" }),
+    adminsCol.createIndex({ tokens: 1 }, { sparse: true, name: "tokens_sparse" }),
 
     groupOrdersCol.createIndex({ shortCode: 1 }, { unique: true, name: "shortCode_unique" }),
     groupOrdersCol.createIndex({ status: 1 }, { name: "status" }),

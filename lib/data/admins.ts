@@ -13,18 +13,25 @@ export async function findAdminByPhone(phone: string): Promise<AdminDoc | null> 
 export async function findAdminByToken(token: string): Promise<AdminDoc | null> {
   if (!token) return null;
   const col = await admins();
-  return col.findOne({ token });
+  return col.findOne({ tokens: token });
 }
 
-export async function setAdminToken(adminId: string, token: string | null): Promise<void> {
+const MAX_DEVICES = 10;
+
+/** Adds a login token, keeping other devices signed in (oldest dropped past MAX_DEVICES). */
+export async function addAdminToken(adminId: string, token: string): Promise<void> {
   const _id = toObjectId(adminId);
   if (!_id) return;
   const col = await admins();
-  if (token === null) {
-    await col.updateOne({ _id }, { $unset: { token: "" } });
-  } else {
-    await col.updateOne({ _id }, { $set: { token } });
-  }
+  await col.updateOne({ _id }, { $push: { tokens: { $each: [token], $slice: -MAX_DEVICES } } });
+}
+
+/** Signs out one device. */
+export async function removeAdminToken(adminId: string, token: string): Promise<void> {
+  const _id = toObjectId(adminId);
+  if (!_id) return;
+  const col = await admins();
+  await col.updateOne({ _id }, { $pull: { tokens: token } });
 }
 
 export async function countAdmins(): Promise<number> {

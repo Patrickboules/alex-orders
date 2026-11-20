@@ -2,10 +2,11 @@
 
 import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { clearAdminCookie, getCurrentAdmin, setAdminCookie } from "@/lib/auth";
-import { findAdminByPhone, setAdminToken } from "@/lib/data/admins";
+import { ADMIN_COOKIE, clearAdminCookie, getCurrentAdmin, setAdminCookie } from "@/lib/auth";
+import { addAdminToken, findAdminByPhone, removeAdminToken } from "@/lib/data/admins";
 import { normalizeEgyptPhone } from "@/lib/phone";
 import { pickFormData, type ActionResult } from "./types";
 
@@ -43,7 +44,7 @@ export async function loginAdmin(
     if (!admin || !valid) return { ok: false, error: LOGIN_ERROR };
 
     const token = nanoid(32);
-    await setAdminToken(admin._id.toString(), token);
+    await addAdminToken(admin._id.toString(), token);
     await setAdminCookie(token);
 
     const next = formData.get("next");
@@ -61,7 +62,8 @@ export async function loginAdmin(
 export async function logoutAdmin(): Promise<ActionResult> {
   try {
     const admin = await getCurrentAdmin();
-    if (admin) await setAdminToken(admin._id.toString(), null);
+    const token = (await cookies()).get(ADMIN_COOKIE)?.value;
+    if (admin && token) await removeAdminToken(admin._id.toString(), token);
     await clearAdminCookie();
   } catch (err) {
     console.error("logoutAdmin failed", err);
