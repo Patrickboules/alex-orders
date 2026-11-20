@@ -3,8 +3,15 @@
 
 import type { ObjectId } from "mongodb";
 
-export type Multiplier = 1.14 | 1.26;
-export const MULTIPLIERS: readonly Multiplier[] = [1.14, 1.26] as const;
+// Tax & service multiplier per group order; 1 means none.
+export type Multiplier = 1 | 1.12 | 1.14 | 1.26;
+export const MULTIPLIERS: readonly Multiplier[] = [1, 1.12, 1.14, 1.26] as const;
+export const MULTIPLIER_OPTIONS: readonly { value: Multiplier; label: string }[] = [
+  { value: 1, label: "None" },
+  { value: 1.12, label: "×1.12" },
+  { value: 1.14, label: "×1.14" },
+  { value: 1.26, label: "×1.26" },
+];
 
 export type MenuStatus = "empty" | "draft" | "published";
 export type GroupOrderStatus = "open" | "closed";

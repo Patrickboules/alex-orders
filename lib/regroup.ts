@@ -140,7 +140,9 @@ export function regroupedToText(
     "",
     `Items: ${itemCount}`,
     `Subtotal: ${formatEGP(regrouped.subtotal)}`,
-    `Total (×${regrouped.multiplier}): ${formatEGP(regrouped.grandTotal)}`,
+    regrouped.multiplier === 1
+      ? `Total: ${formatEGP(regrouped.grandTotal)}`
+      : `Total (×${regrouped.multiplier}): ${formatEGP(regrouped.grandTotal)}`,
   );
   return out.join("\n");
 }

@@ -160,7 +160,7 @@ function Regrouped({ regrouped, text }: { regrouped: RegroupedOrder; text: strin
         </div>
         <div className="flex justify-between">
           <dt className="text-ink-2">Multiplier</dt>
-          <dd className="num">×{regrouped.multiplier.toFixed(2)}</dd>
+          <dd className="num">{regrouped.multiplier === 1 ? "None" : `×${regrouped.multiplier.toFixed(2)}`}</dd>
         </div>
         <div className="flex items-baseline justify-between pt-1">
           <dt className="font-medium">Grand total</dt>
@@ -211,10 +211,12 @@ function ByPerson({ receipts }: { receipts: Receipt[] }) {
               <dt className="text-ink-2">Subtotal</dt>
               <dd className="num">{formatEGP(r.subtotal)}</dd>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-ink-2">Tax &amp; service (×{r.multiplier.toFixed(2)})</dt>
-              <dd className="num">{formatEGP(r.total - r.subtotal)}</dd>
-            </div>
+            {r.multiplier !== 1 ? (
+              <div className="flex justify-between">
+                <dt className="text-ink-2">Tax &amp; service (×{r.multiplier.toFixed(2)})</dt>
+                <dd className="num">{formatEGP(r.total - r.subtotal)}</dd>
+              </div>
+            ) : null}
             <div className="flex justify-between font-semibold">
               <dt>Total</dt>
               <dd className="num">{formatEGP(r.total)}</dd>

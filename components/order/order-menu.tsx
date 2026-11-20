@@ -483,10 +483,12 @@ function CartSheet({
             </div>
             {receiptInSync ? (
               <>
-                <div className="flex justify-between">
-                  <span className="text-ink-2">Tax &amp; service (×{receipt.multiplier.toFixed(2)})</span>
-                  <span className="num">{formatEGP(receipt.total - receipt.subtotal)}</span>
-                </div>
+                {receipt.multiplier !== 1 ? (
+                  <div className="flex justify-between">
+                    <span className="text-ink-2">Tax &amp; service (×{receipt.multiplier.toFixed(2)})</span>
+                    <span className="num">{formatEGP(receipt.total - receipt.subtotal)}</span>
+                  </div>
+                ) : null}
                 <div className="flex items-baseline justify-between pt-1 text-base font-semibold">
                   <span>Estimated total</span>
                   <span className="num text-lg">{formatEGP(receipt.total)}</span>

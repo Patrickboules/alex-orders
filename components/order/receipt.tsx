@@ -74,10 +74,12 @@ export function ReceiptSlip({
             <dt className="text-ink-2">Subtotal</dt>
             <dd className="num">{formatEGP(receipt.subtotal)}</dd>
           </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-ink-2">Tax &amp; service (×{receipt.multiplier.toFixed(2)})</dt>
-            <dd className="num">{formatEGP(taxAmount)}</dd>
-          </div>
+          {receipt.multiplier !== 1 ? (
+            <div className="flex justify-between gap-4">
+              <dt className="text-ink-2">Tax &amp; service (×{receipt.multiplier.toFixed(2)})</dt>
+              <dd className="num">{formatEGP(taxAmount)}</dd>
+            </div>
+          ) : null}
         </dl>
 
         <div className="mt-5 border-t border-ink pt-4">
@@ -124,8 +126,8 @@ function PaymentOptions({ total, payment }: { total: string; payment: PaymentInf
         <div className="rounded-[var(--radius-box)] border border-line p-4">
           <p className="text-sm font-semibold">InstaPay</p>
           {payment.instapayQrUrl ? (
-            <div className="relative mt-3 size-40 overflow-hidden rounded-[var(--radius-control)] border border-line bg-paper">
-              <Image src={payment.instapayQrUrl} alt="InstaPay QR code" fill unoptimized sizes="160px" className="object-contain p-1.5" />
+            <div className="relative mt-3 aspect-[729/950] w-56 overflow-hidden rounded-[var(--radius-control)] border border-line bg-paper">
+              <Image src={payment.instapayQrUrl} alt="InstaPay QR code" fill unoptimized sizes="224px" className="object-contain p-1.5" />
             </div>
           ) : null}
           <p className="mt-3 text-sm text-ink-2">Send exactly</p>

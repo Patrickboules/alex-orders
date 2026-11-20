@@ -30,7 +30,7 @@ export function formatEGP(piasters: number): string {
  */
 export function applyMultiplier(subtotal: number, multiplier: Multiplier | number): number {
   if (subtotal <= 0) return 0;
-  const hundredths = Math.round(multiplier * 100); // 114 or 126
+  const hundredths = Math.round(multiplier * 100); // 100, 112, 114 or 126
   // subtotal (piasters) × hundredths / 100 = piasters; / 100 again = EGP.
   return Math.ceil((subtotal * hundredths) / 10000) * 100;
 }

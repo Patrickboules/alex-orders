@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Segmented } from "@/components/ui/tabs";
 import { closeGroupOrderAction, reopenGroupOrderAction, updateGroupOrderAction } from "@/lib/actions/groupOrders";
-import type { Multiplier } from "@/lib/types";
+import { MULTIPLIER_OPTIONS, type Multiplier } from "@/lib/types";
+
+const OPTIONS = MULTIPLIER_OPTIONS.map((o) => ({ value: o.value.toFixed(2), label: o.label }));
 
 export function OrderControls({
   orderId,
@@ -42,7 +44,7 @@ export function OrderControls({
     });
   }
 
-  function changeMultiplier(value: "1.14" | "1.26") {
+  function changeMultiplier(value: string) {
     setMultError(null);
     startMult(async () => {
       const res = await updateGroupOrderAction(orderId, { multiplier: Number(value) as Multiplier });
@@ -58,12 +60,9 @@ export function OrderControls({
         <div className={multPending ? "opacity-60" : undefined} aria-busy={multPending || undefined}>
           <Segmented
             label="Tax and service multiplier"
-            value={multiplier.toFixed(2) as "1.14" | "1.26"}
+            value={multiplier.toFixed(2)}
             onChange={changeMultiplier}
-            options={[
-              { value: "1.14", label: "×1.14" },
-              { value: "1.26", label: "×1.26" },
-            ]}
+            options={OPTIONS}
           />
         </div>
         {multError ? <p className="mt-1 text-sm text-danger">{multError}</p> : null}

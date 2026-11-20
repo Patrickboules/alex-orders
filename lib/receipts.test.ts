@@ -26,6 +26,21 @@ describe("calculateReceipts", () => {
     expect(r.multiplier).toBe(1.26);
   });
 
+  it("multiplier 1.12: 37.50 -> 42 EGP", () => {
+    const o = order(1.12);
+    const a = person("A");
+    const [r] = calculateReceipts(o, [line(a, o, { price: 3750 })], [a]);
+    expect(r.total).toBe(4200);
+  });
+
+  it("no multiplier: 100 -> 100 EGP, 37.50 -> 38 EGP", () => {
+    const o = order(1);
+    const a = person("A");
+    const b = person("B");
+    const rs = calculateReceipts(o, [line(a, o, { price: 10000 }), line(b, o, { price: 3750 })], [a, b]);
+    expect(rs.map((r) => r.total)).toEqual([10000, 3800]);
+  });
+
   it("rounds up: 37.50 @1.14 = 42.75 -> 43 EGP", () => {
     const o = order(1.14);
     const a = person("A");

@@ -54,7 +54,7 @@ export const restaurantInputSchema = z.object({
   ),
 });
 
-export const multiplierSchema = z.union([z.literal(1.14), z.literal(1.26)]);
+export const multiplierSchema = z.union([z.literal(1), z.literal(1.12), z.literal(1.14), z.literal(1.26)]);
 
 export const groupOrderInputSchema = z.object({
   restaurantId: objectIdStringSchema,

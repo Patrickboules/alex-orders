@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Field, FormError, Input } from "@/components/ui/input";
 import { Segmented } from "@/components/ui/tabs";
 import { createGroupOrderAction } from "@/lib/actions/groupOrders";
-import type { Multiplier } from "@/lib/types";
+import { MULTIPLIER_OPTIONS, type Multiplier } from "@/lib/types";
+
+const OPTIONS = MULTIPLIER_OPTIONS.map((o) => ({ value: o.value.toFixed(2), label: o.label }));
 
 export function StartOrder({ restaurantId, restaurantName }: { restaurantId: string; restaurantName: string }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
-  const [multiplier, setMultiplier] = useState<"1.14" | "1.26">("1.14");
+  const [multiplier, setMultiplier] = useState("1.14");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
@@ -52,10 +54,7 @@ export function StartOrder({ restaurantId, restaurantName }: { restaurantId: str
           label="Tax and service multiplier"
           value={multiplier}
           onChange={setMultiplier}
-          options={[
-            { value: "1.14", label: "×1.14" },
-            { value: "1.26", label: "×1.26" },
-          ]}
+          options={OPTIONS}
         />
         <p className="mt-1.5 text-sm text-ink-2">Applied to each person’s subtotal. You can change it later.</p>
       </div>

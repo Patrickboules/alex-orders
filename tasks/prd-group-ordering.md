@@ -28,7 +28,7 @@ The UI must be white, clean and minimalist.
 | Menu item | One orderable thing on a menu, with a name, price, category, and optional size/variant prices. |
 | Group order | One ordering session for one restaurant. Status is `open` or `closed`. |
 | Order line | One participant's choice: a menu item, variant (if any), quantity, and optional note. |
-| Multiplier | A number the admin picks per group order (`1.14` or `1.26`) that is applied to every participant's subtotal to cover tax/service. |
+| Multiplier | A number the admin picks per group order (none = ×1.00, `1.12`, `1.14` or `1.26`) that is applied to every participant's subtotal to cover tax/service. |
 | Regrouped order | The combined list of all items across all participants, with total quantities, used to place the order with the restaurant. |
 
 ## 2. Goals
@@ -190,7 +190,7 @@ Stories are ordered roughly in build order. Each should fit into one focused ses
 - [ ] On a restaurant with a published menu, an admin clicks **Start group order**.
 - [ ] Form fields:
   - Title (optional, default "<Restaurant> – <date>")
-  - Multiplier: a required choice between **1.14** and **1.26**, default 1.14
+  - Multiplier: a required choice of **None (×1.00)**, **1.12**, **1.14** or **1.26**, default 1.14
 - [ ] On save, a group order with status `open` is created and the admin sees a share link (`/o/[shortCode]`) with a **Copy link** button and a QR code of the link.
 - [ ] Multiple group orders can be open at the same time, each for a different restaurant. A restaurant can have only one open group order at a time.
 - [ ] The admin can change the multiplier while the order is open and after it is closed. Receipts recalculate immediately.
@@ -267,7 +267,7 @@ Stories are ordered roughly in build order. Each should fit into one focused ses
 - [ ] Pure function `calculateReceipts(groupOrder, orderLines)` in `lib/receipts.ts` returns, for each participant: lines, subtotal, and total.
 - [ ] Formula (all amounts in piasters):
   1. `subtotal` = sum of (unit price × quantity) of the participant's lines.
-  2. `total` = `subtotal × multiplier` (1.14 or 1.26), rounded **up** to the nearest whole EGP (100 piasters).
+  2. `total` = `subtotal × multiplier` (1, 1.12, 1.14 or 1.26), rounded **up** to the nearest whole EGP (100 piasters).
 - [ ] There is no delivery fee. Each person pays only for their own items times the multiplier.
 - [ ] Worked example (put in the unit tests): multiplier 1.14: A orders 100 EGP and pays **114 EGP**. B orders 200 EGP and pays **228 EGP**. With multiplier 1.26: A pays **126 EGP**. A 37.50 EGP order at 1.14 = 42.75, which rounds up to **43 EGP**.
 - [ ] Participants with zero items are excluded and owe 0.
@@ -335,7 +335,7 @@ Stories are ordered roughly in build order. Each should fit into one focused ses
 
 **Group orders**
 
-- FR-11: Admins must be able to create a group order for one restaurant, with a multiplier of exactly 1.14 or 1.26. There is no delivery fee.
+- FR-11: Admins must be able to create a group order for one restaurant, with a multiplier of exactly 1 (none), 1.12, 1.14 or 1.26. There is no delivery fee.
 - FR-12: A restaurant can have at most one open group order at a time.
 - FR-13: Group orders stay open until an admin closes them manually. There is no automatic cutoff.
 - FR-14: Participants must be able to add, edit and remove their own order lines only while the order is open. Changes are saved on the server immediately.
@@ -401,7 +401,7 @@ restaurants  { _id, name, phone?, coverImageUrl?, menuStatus: 'empty'|'draft'|'p
                sourceFiles: [{ url, type: 'image'|'pdf'|'link' }], createdBy, updatedAt }
 participants { _id, name, phone (unique, normalized 01XXXXXXXXX), createdAt }
 groupOrders  { _id, shortCode (unique), restaurantId, title, status: 'open'|'closed',
-               multiplier: 1.14|1.26, createdBy, createdAt, closedAt?,
+               multiplier: 1|1.12|1.14|1.26, createdBy, createdAt, closedAt?,
                payments: [{ participantId, paidAt, paidMethod: 'cash'|'instapay', amountAtPayment }] }
 orderLines   { _id, groupOrderId, participantId, itemId, variantId?, nameSnapshot, priceSnapshot (piasters),
                quantity, note?, createdAt, updatedAt }

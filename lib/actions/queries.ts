@@ -140,7 +140,7 @@ export type AdminOrderData = {
 
 function instapay(): InstaPayInfo {
   return {
-    qrUrl: process.env.INSTAPAY_QR_URL || null,
+    qrUrl: process.env.INSTAPAY_QR_URL || "/instapay-qr.png",
     handle: process.env.INSTAPAY_HANDLE || null,
   };
 }
