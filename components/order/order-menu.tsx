@@ -3,11 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { Price, itemFromPrice } from "@/components/menu/price";
+import { PaymentChoice } from "@/components/order/payment-choice";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import { Sheet } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/input";
-import type { CartLineView, Menu, Receipt } from "@/components/view-types";
+import type { CartLineView, Menu, PaymentInfo, Receipt } from "@/components/view-types";
 import { addLineAction, removeLineAction, updateLineAction } from "@/lib/actions/participant";
 import { formatEGP } from "@/lib/money";
 import type { MenuItem } from "@/lib/types";
@@ -40,11 +41,13 @@ export function OrderMenu({
   menu,
   lines,
   receipt,
+  payment,
 }: {
   shortCode: string;
   menu: Menu;
   lines: CartLineView[];
   receipt: Receipt | null;
+  payment: PaymentInfo;
 }) {
   const router = useRouter();
   const [optimisticLines, applyOp] = useOptimistic(lines, reduceCart);
@@ -207,6 +210,8 @@ export function OrderMenu({
         lines={optimisticLines}
         subtotal={subtotal}
         receipt={receipt}
+        shortCode={shortCode}
+        payment={payment}
         onUpdate={update}
         onRemove={remove}
         error={error}
@@ -457,6 +462,8 @@ function CartSheet({
   lines,
   subtotal,
   receipt,
+  shortCode,
+  payment,
   onUpdate,
   onRemove,
   error,
@@ -466,6 +473,8 @@ function CartSheet({
   lines: CartLineView[];
   subtotal: number;
   receipt: Receipt | null;
+  shortCode: string;
+  payment: PaymentInfo;
   onUpdate: (id: string, patch: { quantity?: number; note?: string }) => void;
   onRemove: (id: string) => void;
   error: string | null;
@@ -519,11 +528,24 @@ function CartSheet({
           <p className="mt-1 text-sm text-ink-2">Tap any item on the menu to add it.</p>
         </div>
       ) : (
-        <ul className="divide-y divide-line">
-          {lines.map((line) => (
-            <CartRow key={line.id} line={line} onUpdate={onUpdate} onRemove={onRemove} />
-          ))}
-        </ul>
+        <>
+          <ul className="divide-y divide-line">
+            {lines.map((line) => (
+              <CartRow key={line.id} line={line} onUpdate={onUpdate} onRemove={onRemove} />
+            ))}
+          </ul>
+          {receipt ? (
+            <div className="mt-4 border-t border-line pt-5 pb-2">
+              <PaymentChoice
+                key={receipt.paymentChoice ?? "none"}
+                shortCode={shortCode}
+                total={receiptInSync ? formatEGP(receipt.total) : "…"}
+                payment={payment}
+                initialChoice={receipt.paymentChoice}
+              />
+            </div>
+          ) : null}
+        </>
       )}
     </Sheet>
   );

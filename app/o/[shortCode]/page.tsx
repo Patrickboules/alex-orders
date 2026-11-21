@@ -107,7 +107,7 @@ async function OrderContent({ params }: { params: PageProps<"/o/[shortCode]">["p
         </div>
       ) : (
         <div className="mt-6">
-          <OrderMenu shortCode={order.shortCode} menu={restaurant.menu} lines={myLines} receipt={myReceipt} />
+          <OrderMenu shortCode={order.shortCode} menu={restaurant.menu} lines={myLines} receipt={myReceipt} payment={payment} />
           {myReceipt && myReceipt.lines.length > 0 ? (
             <div className="-mt-12 border-t border-line pt-8 pb-32">
               <p className="mb-4 text-sm text-ink-2">Your receipt so far</p>

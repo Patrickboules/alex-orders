@@ -104,7 +104,13 @@ export function ReceiptSlip({
       </div>
 
       {!receipt.paid ? (
-        <PaymentChoice shortCode={shortCode} total={total} payment={payment} initialChoice={receipt.paymentChoice} />
+        <PaymentChoice
+          key={receipt.paymentChoice ?? "none"}
+          shortCode={shortCode}
+          total={total}
+          payment={payment}
+          initialChoice={receipt.paymentChoice}
+        />
       ) : null}
     </section>
   );
