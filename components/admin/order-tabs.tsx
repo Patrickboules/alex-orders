@@ -253,6 +253,10 @@ function Payments({
   const [, start] = useTransition();
 
   const shown = receipts.filter((r) => (filter === "all" ? true : filter === "paid" ? r.paid : !r.paid));
+  const unpaid = receipts.filter((r) => !r.paid);
+  const willCash = unpaid.filter((r) => r.paymentChoice === "cash");
+  const willInstapay = unpaid.filter((r) => r.paymentChoice === "instapay");
+  const notChosen = unpaid.length - willCash.length - willInstapay.length;
 
   function save(r: Receipt, method: PaymentMethod | null) {
     setAsking(null);
@@ -277,6 +281,20 @@ function Payments({
           <span className="num font-medium">{formatEGP(collected)}</span>
           <span className="text-ink-2"> · outstanding </span>
           <span className={cn("num font-medium", outstanding > 0 && "text-danger")}>{formatEGP(outstanding)}</span>
+          {unpaid.length > 0 ? (
+            <span className="mt-1 block text-ink-2">
+              Still to pay: <span className="num">{willCash.length}</span> cash (
+              <span className="num">{formatEGP(willCash.reduce((s, r) => s + r.total, 0))}</span>) ·{" "}
+              <span className="num">{willInstapay.length}</span> InstaPay (
+              <span className="num">{formatEGP(willInstapay.reduce((s, r) => s + r.total, 0))}</span>)
+              {notChosen > 0 ? (
+                <>
+                  {" "}
+                  · <span className="num">{notChosen}</span> haven’t chosen
+                </>
+              ) : null}
+            </span>
+          ) : null}
         </p>
         <Segmented
           label="Show"
@@ -328,7 +346,11 @@ function Payments({
               <div className="text-end">
                 <p className="num font-semibold">{formatEGP(r.total)}</p>
                 <p className="text-xs text-ink-2">
-                  {r.paid ? (r.paidMethod === "instapay" ? "InstaPay" : "Cash") : "–"}
+                  {r.paid
+                    ? `Paid · ${r.paidMethod === "instapay" ? "InstaPay" : "Cash"}`
+                    : r.paymentChoice
+                      ? `Will pay ${r.paymentChoice === "instapay" ? "InstaPay" : "cash"}`
+                      : "Not chosen yet"}
                 </p>
               </div>
               <PaidSwitch
@@ -349,10 +371,18 @@ function Payments({
         description={asking ? <span className="num">{formatEGP(asking.total)}</span> : undefined}
       >
         <div className="grid grid-cols-2 gap-3 pb-2">
-          <Button variant="secondary" size="lg" onClick={() => asking && save(asking, "cash")}>
+          <Button
+            variant={asking?.paymentChoice === "cash" ? "primary" : "secondary"}
+            size="lg"
+            onClick={() => asking && save(asking, "cash")}
+          >
             Cash
           </Button>
-          <Button variant="secondary" size="lg" onClick={() => asking && save(asking, "instapay")}>
+          <Button
+            variant={asking?.paymentChoice === "instapay" ? "primary" : "secondary"}
+            size="lg"
+            onClick={() => asking && save(asking, "instapay")}
+          >
             InstaPay
           </Button>
         </div>

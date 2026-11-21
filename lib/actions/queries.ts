@@ -260,7 +260,11 @@ export async function getOrderPageData(shortCode: string): Promise<OrderPageData
     : [];
   // Payments are filtered to this participant so nothing about others leaks.
   const myOrder = person
-    ? { ...order, payments: order.payments.filter((p) => p.participantId.equals(person._id)) }
+    ? {
+        ...order,
+        payments: order.payments.filter((p) => p.participantId.equals(person._id)),
+        paymentChoices: (order.paymentChoices ?? []).filter((c) => c.participantId.equals(person._id)),
+      }
     : order;
 
   return {

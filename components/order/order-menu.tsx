@@ -245,11 +245,17 @@ function MenuNav({
     return () => observer.disconnect();
   }, [categories]);
 
-  // Keep the active chip in view as the page scrolls.
+  // Keep the active chip in view as the page scrolls. Scrolls only the chip bar:
+  // scrollIntoView would also move the page and fight the user's finger.
   useEffect(() => {
-    if (!active || !barRef.current) return;
-    const chip = barRef.current.querySelector<HTMLElement>(`[data-chip="${active}"]`);
-    chip?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    const bar = barRef.current;
+    if (!active || !bar) return;
+    const chip = bar.querySelector<HTMLElement>(`[data-chip="${active}"]`);
+    if (!chip) return;
+    const barRect = bar.getBoundingClientRect();
+    const chipRect = chip.getBoundingClientRect();
+    const offset = chipRect.left - barRect.left - (barRect.width - chipRect.width) / 2;
+    bar.scrollBy({ left: offset, behavior: "smooth" });
   }, [active]);
 
   function jump(id: string) {

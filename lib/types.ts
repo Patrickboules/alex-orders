@@ -100,6 +100,14 @@ export interface GroupOrderDoc {
   createdAt: Date;
   closedAt?: Date;
   payments: PaymentRecord[];
+  // How each participant says they'll pay (set by them; admins confirm with payments).
+  paymentChoices?: PaymentChoice[];
+}
+
+export interface PaymentChoice {
+  participantId: ObjectId;
+  method: PaymentMethod;
+  chosenAt: Date;
 }
 
 export interface OrderLineDoc {
@@ -138,6 +146,7 @@ export interface Receipt {
   total: number; // piasters, subtotal × multiplier rounded UP to whole EGP
   paid: boolean;
   paidMethod?: PaymentMethod;
+  paymentChoice?: PaymentMethod; // what the participant said they'll use
   amountChangedSincePayment: boolean;
 }
 

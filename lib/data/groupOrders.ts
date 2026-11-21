@@ -128,3 +128,13 @@ export async function setPayment(
     await col.updateOne({ _id }, { $push: { payments: record } });
   }
 }
+
+/** Records how a participant says they'll pay (replaces any earlier choice). */
+export async function setPaymentChoice(id: string, participantId: string, method: PaymentMethod): Promise<void> {
+  const _id = toObjectId(id);
+  const pid = toObjectId(participantId);
+  if (!_id || !pid) return;
+  const col = await groupOrders();
+  await col.updateOne({ _id }, { $pull: { paymentChoices: { participantId: pid } } });
+  await col.updateOne({ _id }, { $push: { paymentChoices: { participantId: pid, method, chosenAt: new Date() } } });
+}

@@ -10,7 +10,7 @@ import type {
 } from "@/lib/types";
 import { applyMultiplier } from "@/lib/money";
 
-type OrderForReceipt = Pick<GroupOrderDoc, "multiplier" | "payments">;
+type OrderForReceipt = Pick<GroupOrderDoc, "multiplier" | "payments" | "paymentChoices">;
 type LineForReceipt = Pick<
   OrderLineDoc,
   "_id" | "participantId" | "nameSnapshot" | "priceSnapshot" | "quantity" | "note"
@@ -55,6 +55,8 @@ export function calculateReceipt(
     amountChangedSincePayment: payment ? payment.amountAtPayment !== total : false,
   };
   if (payment) receipt.paidMethod = payment.paidMethod;
+  const choice = (order.paymentChoices ?? []).find((c) => c.participantId.toString() === pid);
+  if (choice) receipt.paymentChoice = choice.method;
   return receipt;
 }
 

@@ -6,8 +6,9 @@ import { clearParticipantCookie, getCurrentParticipant, setParticipantCookie } f
 import {
   getGroupOrder,
   getGroupOrderByShortCode,
+  setPaymentChoice,
 } from "@/lib/data/groupOrders";
-import { addLine, getLine, removeLine, updateLine } from "@/lib/data/orderLines";
+import { addLine, getLine, listLinesForParticipant, removeLine, updateLine } from "@/lib/data/orderLines";
 import { upsertParticipantByPhone } from "@/lib/data/participants";
 import { getRestaurant } from "@/lib/data/restaurants";
 import { joinInputSchema, objectIdStringSchema, orderLineInputSchema } from "@/lib/db/schemas";
@@ -201,5 +202,34 @@ export async function removeLineAction(lineId: string): Promise<ActionResult> {
   } catch (err) {
     console.error("removeLineAction failed", err);
     return { ok: false, error: "Could not remove the item. Please try again." };
+  }
+}
+
+const paymentChoiceSchema = z.object({
+  shortCode: z.string().min(1).max(64),
+  method: z.enum(["cash", "instapay"]),
+});
+
+/** The participant picks how they'll pay (cash or InstaPay) so admins know what to expect. */
+export async function choosePaymentMethodAction(input: {
+  shortCode: string;
+  method: "cash" | "instapay";
+}): Promise<ActionResult> {
+  try {
+    const parsed = paymentChoiceSchema.safeParse(input);
+    if (!parsed.success) return { ok: false, error: "Choose cash or InstaPay" };
+    const person = await getCurrentParticipant();
+    if (!person) return { ok: false, error: NOT_JOINED };
+    const order = await getGroupOrderByShortCode(parsed.data.shortCode);
+    if (!order) return { ok: false, error: "Order not found" };
+    const lines = await listLinesForParticipant(order._id.toString(), person._id.toString());
+    if (lines.length === 0) return { ok: false, error: "Add something to your order first" };
+
+    await setPaymentChoice(order._id.toString(), person._id.toString(), parsed.data.method);
+    revalidateOrderPages(order);
+    return { ok: true };
+  } catch (err) {
+    console.error("choosePaymentMethodAction failed", err);
+    return { ok: false, error: "Could not save your choice. Please try again." };
   }
 }

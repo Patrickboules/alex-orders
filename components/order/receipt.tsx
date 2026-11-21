@@ -1,5 +1,4 @@
-import Image from "next/image";
-import { CopyButton } from "@/components/ui/copy-button";
+import { PaymentChoice } from "@/components/order/payment-choice";
 import type { PaymentInfo, Receipt } from "@/components/view-types";
 import { formatEGP } from "@/lib/money";
 
@@ -20,7 +19,9 @@ export function ReceiptSlip({
   date,
   estimate,
   payment,
+  shortCode,
 }: {
+  shortCode: string;
   receipt: Receipt;
   restaurantName: string;
   date?: string | null;
@@ -102,46 +103,9 @@ export function ReceiptSlip({
         </div>
       </div>
 
-      {!receipt.paid ? <PaymentOptions total={total} payment={payment} /> : null}
+      {!receipt.paid ? (
+        <PaymentChoice shortCode={shortCode} total={total} payment={payment} initialChoice={receipt.paymentChoice} />
+      ) : null}
     </section>
-  );
-}
-
-function PaymentOptions({ total, payment }: { total: string; payment: PaymentInfo }) {
-  return (
-    <div>
-      <h3 className="font-semibold">How to pay</h3>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-[var(--radius-box)] border border-line p-4">
-          <p className="text-sm font-semibold">Cash</p>
-          <p className="mt-1.5">
-            Pay <span className="num font-semibold">{total}</span> in cash to{" "}
-            <span dir="auto" className="font-medium">
-              {payment.adminName}
-            </span>
-            .
-          </p>
-        </div>
-
-        <div className="rounded-[var(--radius-box)] border border-line p-4">
-          <p className="text-sm font-semibold">InstaPay</p>
-          {payment.instapayQrUrl ? (
-            <div className="relative mt-3 aspect-[729/950] w-56 overflow-hidden rounded-[var(--radius-control)] border border-line bg-paper">
-              <Image src={payment.instapayQrUrl} alt="InstaPay QR code" fill unoptimized sizes="224px" className="object-contain p-1.5" />
-            </div>
-          ) : null}
-          <p className="mt-3 text-sm text-ink-2">Send exactly</p>
-          <p className="num text-lg font-semibold">{total}</p>
-          {payment.instapayHandle ? (
-            <div className="mt-2 flex items-center justify-between gap-2 rounded-[var(--radius-control)] bg-wash py-1 ps-3 pe-1">
-              <span className="truncate font-medium" dir="ltr">
-                {payment.instapayHandle}
-              </span>
-              <CopyButton text={payment.instapayHandle} label="Copy" aria-label="Copy InstaPay handle" />
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </div>
   );
 }

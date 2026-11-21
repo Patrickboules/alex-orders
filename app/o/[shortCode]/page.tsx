@@ -99,6 +99,7 @@ async function OrderContent({ params }: { params: PageProps<"/o/[shortCode]">["p
               date={order.closedAt ?? order.createdAt}
               estimate={false}
               payment={payment}
+              shortCode={order.shortCode}
             />
           ) : (
             <p className="text-ink-2">You didn’t add anything to this order, so there’s nothing to pay.</p>
@@ -116,6 +117,7 @@ async function OrderContent({ params }: { params: PageProps<"/o/[shortCode]">["p
                 date={order.createdAt}
                 estimate={isEstimate}
                 payment={payment}
+                shortCode={order.shortCode}
               />
             </div>
           ) : null}
