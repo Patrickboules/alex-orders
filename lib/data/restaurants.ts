@@ -1,7 +1,7 @@
 import "server-only";
 import { ObjectId } from "mongodb";
-import { restaurants } from "@/lib/db/collections";
-import type { Menu, RestaurantDoc, SourceFile } from "@/lib/types";
+import { groupOrders, orderLines, restaurants } from "@/lib/db/collections";
+import type { Menu, MenuItem, RestaurantDoc, SourceFile } from "@/lib/types";
 import { toObjectId } from "./ids";
 
 export async function listRestaurants(): Promise<RestaurantDoc[]> {
@@ -128,4 +128,78 @@ export async function publishMenu(id: string): Promise<void> {
       },
     },
   ]);
+  const published = await col.findOne({ _id }, { projection: { menu: 1 } });
+  if (published) await repriceOpenOrders(_id, published.menu);
+}
+
+/** Re-applies the current published menu's prices to the restaurant's open orders. */
+export async function repriceOpenOrdersFor(id: string): Promise<void> {
+  const _id = toObjectId(id);
+  if (!_id) return;
+  const r = await (await restaurants()).findOne({ _id }, { projection: { menu: 1 } });
+  if (r) await repriceOpenOrders(_id, r.menu);
+}
+
+const norm = (s: string) => s.trim().toLocaleLowerCase();
+
+/**
+ * Brings items already in this restaurant's OPEN orders in line with the newly
+ * published menu (price, name, category). Closed orders keep what they had.
+ * Matches by item/variant id, then by name (ids change when a menu is re-parsed).
+ * Lines whose item is no longer on the menu are left as they are.
+ */
+async function repriceOpenOrders(restaurantId: ObjectId, menu: Menu): Promise<void> {
+  const open = await (await groupOrders())
+    .find({ restaurantId, status: "open" }, { projection: { _id: 1 } })
+    .toArray();
+  if (open.length === 0) return;
+
+  const byId = new Map<string, { item: MenuItem; categoryId: string }>();
+  const byName = new Map<string, { item: MenuItem; categoryId: string }>();
+  for (const c of menu.categories) {
+    for (const item of c.items) {
+      byId.set(item.id, { item, categoryId: c.id });
+      if (!byName.has(norm(item.name))) byName.set(norm(item.name), { item, categoryId: c.id });
+    }
+  }
+
+  const linesCol = await orderLines();
+  const lines = await linesCol.find({ groupOrderId: { $in: open.map((o) => o._id) } }).toArray();
+  const ops = [];
+  for (const line of lines) {
+    // Old line names are "Item" or "Item – Variant".
+    const [oldItemName, oldVariantName] = line.nameSnapshot.split(" – ");
+    const found = byId.get(line.itemId) ?? byName.get(norm(oldItemName));
+    if (!found) continue;
+    const { item, categoryId } = found;
+    const variants = item.variants ?? [];
+    let name = item.name;
+    let price = item.price;
+    let variantId: string | undefined;
+    if (variants.length > 0) {
+      const variant =
+        variants.find((v) => v.id === line.variantId) ??
+        (oldVariantName ? variants.find((v) => norm(v.name) === norm(oldVariantName)) : undefined);
+      if (!variant) continue;
+      name = `${item.name} – ${variant.name}`;
+      price = variant.price;
+      variantId = variant.id;
+    }
+    if (!(price > 0)) continue;
+    const unchanged =
+      line.priceSnapshot === price &&
+      line.nameSnapshot === name &&
+      line.itemId === item.id &&
+      line.variantId === variantId &&
+      line.categoryIdSnapshot === categoryId;
+    if (unchanged) continue;
+    const set = { itemId: item.id, nameSnapshot: name, priceSnapshot: price, categoryIdSnapshot: categoryId, updatedAt: new Date() };
+    ops.push({
+      updateOne: {
+        filter: { _id: line._id },
+        update: variantId ? { $set: { ...set, variantId } } : { $set: set, $unset: { variantId: "" as const } },
+      },
+    });
+  }
+  if (ops.length > 0) await linesCol.bulkWrite(ops);
 }
