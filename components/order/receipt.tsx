@@ -28,7 +28,8 @@ export function ReceiptSlip({
   estimate: boolean;
   payment: PaymentInfo;
 }) {
-  const taxAmount = receipt.total - receipt.subtotal;
+  const fee = receipt.fee ?? 0;
+  const taxAmount = receipt.total - fee - receipt.subtotal;
   const total = formatEGP(receipt.total);
   const when = formatDate(date);
 
@@ -79,6 +80,12 @@ export function ReceiptSlip({
             <div className="flex justify-between gap-4">
               <dt className="text-ink-2">Tax &amp; service (×{receipt.multiplier.toFixed(2)})</dt>
               <dd className="num">{formatEGP(taxAmount)}</dd>
+            </div>
+          ) : null}
+          {fee > 0 ? (
+            <div className="flex justify-between gap-4">
+              <dt className="text-ink-2">Fee</dt>
+              <dd className="num">{formatEGP(fee)}</dd>
             </div>
           ) : null}
         </dl>

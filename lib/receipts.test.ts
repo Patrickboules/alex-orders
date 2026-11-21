@@ -41,6 +41,15 @@ describe("calculateReceipts", () => {
     expect(rs.map((r) => r.total)).toEqual([10000, 3800]);
   });
 
+  it("per-person fee is added after the multiplier, only for people with items", () => {
+    const o = { ...order(1.14), perPersonFee: 6000 };
+    const a = person("A");
+    const [r] = calculateReceipts(o, [line(a, o, { price: 10000 })], [a]);
+    expect(r.total).toBe(11400 + 6000);
+    expect(r.fee).toBe(6000);
+    expect(calculateReceipt(o, [], person("B")).total).toBe(0);
+  });
+
   it("rounds up: 37.50 @1.14 = 42.75 -> 43 EGP", () => {
     const o = order(1.14);
     const a = person("A");

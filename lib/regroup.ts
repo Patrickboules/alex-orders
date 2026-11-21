@@ -38,7 +38,7 @@ function menuPositions(restaurant: Pick<RestaurantDoc, "menu">) {
  * on the menu go to their snapshot category (if it still exists) or "Other" at the end.
  */
 export function regroupOrder(
-  order: Pick<GroupOrderDoc, "multiplier" | "payments">,
+  order: Pick<GroupOrderDoc, "multiplier" | "payments" | "perPersonFee">,
   restaurant: Pick<RestaurantDoc, "menu">,
   lines: OrderLineDoc[],
   people: Pick<ParticipantDoc, "_id" | "name" | "phone">[],
@@ -116,8 +116,10 @@ export function regroupOrder(
   }
 
   const subtotal = accs.reduce((s, l) => s + l.lineTotal, 0);
-  const grandTotal = calculateReceipts(order, lines, people).reduce((s, r) => s + r.total, 0);
-  return { categories, subtotal, multiplier: order.multiplier, grandTotal };
+  const receipts = calculateReceipts(order, lines, people);
+  const grandTotal = receipts.reduce((s, r) => s + r.total, 0);
+  const fees = receipts.reduce((s, r) => s + (r.fee ?? 0), 0);
+  return { categories, subtotal, multiplier: order.multiplier, fees, grandTotal };
 }
 
 /** Plain text for WhatsApp ("*bold*" category headers, notes indented). */
@@ -140,9 +142,10 @@ export function regroupedToText(
     "",
     `Items: ${itemCount}`,
     `Subtotal: ${formatEGP(regrouped.subtotal)}`,
+    // Sent to the restaurant, so the organiser's per-person fee is left out.
     regrouped.multiplier === 1
-      ? `Total: ${formatEGP(regrouped.grandTotal)}`
-      : `Total (×${regrouped.multiplier}): ${formatEGP(regrouped.grandTotal)}`,
+      ? `Total: ${formatEGP(regrouped.grandTotal - regrouped.fees)}`
+      : `Total (×${regrouped.multiplier}): ${formatEGP(regrouped.grandTotal - regrouped.fees)}`,
   );
   return out.join("\n");
 }

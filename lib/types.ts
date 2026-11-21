@@ -100,6 +100,7 @@ export interface GroupOrderDoc {
   createdAt: Date;
   closedAt?: Date;
   payments: PaymentRecord[];
+  perPersonFee?: number; // piasters added to each participant's total (after the multiplier)
   // How each participant says they'll pay (set by them; admins confirm with payments).
   paymentChoices?: PaymentChoice[];
 }
@@ -143,7 +144,8 @@ export interface Receipt {
   lines: ReceiptLine[];
   subtotal: number; // piasters
   multiplier: Multiplier;
-  total: number; // piasters, subtotal × multiplier rounded UP to whole EGP
+  fee?: number; // piasters, per-person order fee (included in total)
+  total: number; // piasters, subtotal × multiplier rounded UP to whole EGP, plus fee
   paid: boolean;
   paidMethod?: PaymentMethod;
   paymentChoice?: PaymentMethod; // what the participant said they'll use
@@ -165,6 +167,7 @@ export interface RegroupedOrder {
   categories: { id: string; name: string; lines: RegroupedLine[] }[];
   subtotal: number;
   multiplier: Multiplier;
+  fees: number; // piasters, per-person fees across everyone (included in grandTotal)
   grandTotal: number; // sum of every participant's rounded total
 }
 

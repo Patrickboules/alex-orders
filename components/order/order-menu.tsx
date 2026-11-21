@@ -501,7 +501,13 @@ function CartSheet({
                 {receipt.multiplier !== 1 ? (
                   <div className="flex justify-between">
                     <span className="text-ink-2">Tax &amp; service (×{receipt.multiplier.toFixed(2)})</span>
-                    <span className="num">{formatEGP(receipt.total - receipt.subtotal)}</span>
+                    <span className="num">{formatEGP(receipt.total - (receipt.fee ?? 0) - receipt.subtotal)}</span>
+                  </div>
+                ) : null}
+                {receipt.fee ? (
+                  <div className="flex justify-between">
+                    <span className="text-ink-2">Fee</span>
+                    <span className="num">{formatEGP(receipt.fee)}</span>
                   </div>
                 ) : null}
                 <div className="flex items-baseline justify-between pt-1 text-base font-semibold">
