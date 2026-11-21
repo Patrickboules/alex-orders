@@ -140,7 +140,38 @@ export async function repriceOpenOrdersFor(id: string): Promise<void> {
   if (r) await repriceOpenOrders(_id, r.menu);
 }
 
-const norm = (s: string) => s.trim().toLocaleLowerCase();
+/** Folds spelling variants so re-parsed names still match (أ/إ/آ→ا, ة→ه, ى→ي, no diacritics/spaces). */
+const norm = (s: string) =>
+  s
+    .toLocaleLowerCase()
+    .replace(/[\u064B-\u0652\u0640]/g, "")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي")
+    .replace(/[\s()+\-–]/g, "");
+
+/** True when a and b differ by at most one inserted, deleted or changed character. */
+function withinOneEdit(a: string, b: string): boolean {
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  let j = 0;
+  let edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      i++;
+      j++;
+      continue;
+    }
+    if (++edits > 1) return false;
+    if (a.length > b.length) i++;
+    else if (b.length > a.length) j++;
+    else {
+      i++;
+      j++;
+    }
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1;
+}
 
 /**
  * Brings items already in this restaurant's OPEN orders in line with the newly
@@ -169,7 +200,12 @@ async function repriceOpenOrders(restaurantId: ObjectId, menu: Menu): Promise<vo
   for (const line of lines) {
     // Old line names are "Item" or "Item – Variant".
     const [oldItemName, oldVariantName] = line.nameSnapshot.split(" – ");
-    const found = byId.get(line.itemId) ?? byName.get(norm(oldItemName));
+    const key = norm(oldItemName);
+    let found = byId.get(line.itemId) ?? byName.get(key);
+    if (!found && key.length >= 4) {
+      const near = [...byName].filter(([name]) => withinOneEdit(name, key));
+      if (near.length === 1) found = near[0][1];
+    }
     if (!found) continue;
     const { item, categoryId } = found;
     const variants = item.variants ?? [];
