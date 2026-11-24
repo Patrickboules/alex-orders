@@ -103,6 +103,8 @@ export interface GroupOrderDoc {
   perPersonFee?: number; // piasters added to each participant's total (after the multiplier)
   // How each participant says they'll pay (set by them; admins confirm with payments).
   paymentChoices?: PaymentChoice[];
+  // Participants who pressed "Confirm my order" (cleared when they change their cart).
+  confirmations?: { participantId: ObjectId; confirmedAt: Date }[];
 }
 
 export interface PaymentChoice {
@@ -122,6 +124,7 @@ export interface OrderLineDoc {
   priceSnapshot: number; // piasters, unit price at time of adding
   quantity: number; // 1..20
   note?: string; // max 140 chars
+  sharedWith?: ObjectId[]; // other participants splitting this line's cost equally (set by an admin)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -133,8 +136,12 @@ export interface ReceiptLine {
   name: string;
   quantity: number;
   unitPrice: number; // piasters
-  lineTotal: number; // piasters
+  lineTotal: number; // piasters: this person's part (their share when the line is split)
   note?: string;
+  isOwner: boolean; // false when someone else's item is shared with this person
+  shareCount?: number; // people splitting the cost, when more than 1
+  sharedWithIds?: string[]; // everyone on a split line (owner first)
+  sharedWithNames?: string[]; // the other people on a split line
 }
 
 export interface Receipt {
@@ -142,13 +149,15 @@ export interface Receipt {
   participantName: string;
   participantPhone: string;
   lines: ReceiptLine[];
-  subtotal: number; // piasters
+  subtotal: number; // piasters (shares of split items included)
+  ownedFullSubtotal: number; // piasters, full price of the lines this person added (for cart sync)
   multiplier: Multiplier;
   fee?: number; // piasters, per-person order fee (included in total)
   total: number; // piasters, subtotal × multiplier rounded UP to whole EGP, plus fee
   paid: boolean;
   paidMethod?: PaymentMethod;
   paymentChoice?: PaymentMethod; // what the participant said they'll use
+  confirmed: boolean; // pressed "Confirm my order"
   amountChangedSincePayment: boolean;
 }
 

@@ -138,3 +138,33 @@ export async function setPaymentChoice(id: string, participantId: string, method
   await col.updateOne({ _id }, { $pull: { paymentChoices: { participantId: pid } } });
   await col.updateOne({ _id }, { $push: { paymentChoices: { participantId: pid, method, chosenAt: new Date() } } });
 }
+
+/** Marks a participant's order confirmed or not. */
+export async function setConfirmation(id: string, participantId: string, confirmed: boolean): Promise<void> {
+  const _id = toObjectId(id);
+  const pid = toObjectId(participantId);
+  if (!_id || !pid) return;
+  const col = await groupOrders();
+  await col.updateOne({ _id }, { $pull: { confirmations: { participantId: pid } } });
+  if (confirmed) {
+    await col.updateOne({ _id }, { $push: { confirmations: { participantId: pid, confirmedAt: new Date() } } });
+  }
+}
+
+/** Clears a removed participant's payment, payment choice and confirmation. */
+export async function removeParticipantRecords(id: string, participantId: string): Promise<void> {
+  const _id = toObjectId(id);
+  const pid = toObjectId(participantId);
+  if (!_id || !pid) return;
+  const col = await groupOrders();
+  await col.updateOne(
+    { _id },
+    {
+      $pull: {
+        payments: { participantId: pid },
+        paymentChoices: { participantId: pid },
+        confirmations: { participantId: pid },
+      },
+    },
+  );
+}

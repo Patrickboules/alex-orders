@@ -9,7 +9,7 @@ import {
   listOpenGroupOrders,
   listRecentClosedGroupOrders,
 } from "@/lib/data/groupOrders";
-import { listLinesForOrder, listLinesForParticipant } from "@/lib/data/orderLines";
+import { listLinesForOrder, listLinesForParticipant, listLinesInvolving } from "@/lib/data/orderLines";
 import { getParticipantsByIds } from "@/lib/data/participants";
 import {
   getRestaurant,
@@ -202,7 +202,9 @@ async function adminNameMap(): Promise<Map<string, string>> {
 }
 
 async function peopleForLines(lines: OrderLineDoc[]) {
-  const ids = [...new Set(lines.map((l) => l.participantId.toString()))];
+  const ids = [
+    ...new Set(lines.flatMap((l) => [l.participantId.toString(), ...(l.sharedWith ?? []).map((id) => id.toString())])),
+  ];
   return getParticipantsByIds(ids);
 }
 
@@ -255,15 +257,21 @@ export async function getOrderPageData(shortCode: string): Promise<OrderPageData
   ]);
   if (!restaurant) return null;
 
-  const lines = person
-    ? await listLinesForParticipant(order._id.toString(), person._id.toString())
-    : [];
+  const [lines, involved] = person
+    ? await Promise.all([
+        listLinesForParticipant(order._id.toString(), person._id.toString()),
+        listLinesInvolving(order._id.toString(), person._id.toString()),
+      ])
+    : [[], []];
+  // Names of people sharing items with this participant (shown as "shared with …").
+  const names = new Map((await peopleForLines(involved)).map((p) => [p._id.toString(), p.name]));
   // Payments are filtered to this participant so nothing about others leaks.
   const myOrder = person
     ? {
         ...order,
         payments: order.payments.filter((p) => p.participantId.equals(person._id)),
         paymentChoices: (order.paymentChoices ?? []).filter((c) => c.participantId.equals(person._id)),
+        confirmations: (order.confirmations ?? []).filter((c) => c.participantId.equals(person._id)),
       }
     : order;
 
@@ -274,7 +282,7 @@ export async function getOrderPageData(shortCode: string): Promise<OrderPageData
       ? { id: person._id.toString(), name: person.name, phone: person.phone }
       : null,
     myLines: lines.map(serializeLine),
-    myReceipt: person ? calculateReceipt(myOrder, lines, person) : null,
+    myReceipt: person ? calculateReceipt(myOrder, involved, person, names) : null,
     isEstimate: order.status === "open",
     instapay: instapay(),
     cashToName: admins.get(order.createdBy.toString()) ?? null,

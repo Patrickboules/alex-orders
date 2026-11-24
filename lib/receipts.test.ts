@@ -50,6 +50,31 @@ describe("calculateReceipts", () => {
     expect(calculateReceipt(o, [], person("B")).total).toBe(0);
   });
 
+  it("splits a shared item equally; leftover piasters go to the first payers", () => {
+    const o = order(1);
+    const a = person("A");
+    const b = person("B");
+    const c = person("C");
+    const platter = { ...line(a, o, { price: 10000 }), sharedWith: [b._id, c._id] };
+    const tea = line(b, o, { price: 1500 });
+    const rs = calculateReceipts(o, [platter, tea], [a, b, c]);
+    const byName = Object.fromEntries(rs.map((r) => [r.participantName, r]));
+    // 100.00 / 3 = 33.34 + 33.33 + 33.33, then each rounded up to a whole pound.
+    expect(byName.A.subtotal).toBe(3334);
+    expect(byName.B.subtotal).toBe(3333 + 1500);
+    expect(byName.C.subtotal).toBe(3333);
+    expect(byName.C.lines[0]).toMatchObject({ isOwner: false, shareCount: 3, sharedWithNames: ["A", "B"] });
+    expect(byName.A.ownedFullSubtotal).toBe(10000);
+    expect(byName.C.total).toBe(3400);
+  });
+
+  it("marks confirmed participants", () => {
+    const a = person("A");
+    const o = { ...order(1.14), confirmations: [{ participantId: a._id, confirmedAt: new Date() }] };
+    const [r] = calculateReceipts(o, [line(a, o, { price: 1000 })], [a]);
+    expect(r.confirmed).toBe(true);
+  });
+
   it("rounds up: 37.50 @1.14 = 42.75 -> 43 EGP", () => {
     const o = order(1.14);
     const a = person("A");

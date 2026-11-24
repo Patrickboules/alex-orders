@@ -96,3 +96,49 @@ export async function countParticipantsInOrder(groupOrderId: string): Promise<nu
   const ids = await col.distinct("participantId", { groupOrderId: gid });
   return ids.length;
 }
+
+/** Lines a participant pays for: their own plus any shared with them. */
+export async function listLinesInvolving(groupOrderId: string, participantId: string): Promise<OrderLineDoc[]> {
+  const gid = toObjectId(groupOrderId);
+  const pid = toObjectId(participantId);
+  if (!gid || !pid) return [];
+  const col = await orderLines();
+  return col
+    .find({ groupOrderId: gid, $or: [{ participantId: pid }, { sharedWith: pid }] })
+    .sort({ createdAt: 1 })
+    .toArray();
+}
+
+/** Admin: removes one line from an order. */
+export async function removeLineInOrder(groupOrderId: string, lineId: string): Promise<boolean> {
+  const gid = toObjectId(groupOrderId);
+  const _id = toObjectId(lineId);
+  if (!gid || !_id) return false;
+  const col = await orderLines();
+  const res = await col.deleteOne({ _id, groupOrderId: gid });
+  return res.deletedCount === 1;
+}
+
+/** Admin: removes a participant's lines and takes them off every shared line in the order. */
+export async function removeParticipantLines(groupOrderId: string, participantId: string): Promise<void> {
+  const gid = toObjectId(groupOrderId);
+  const pid = toObjectId(participantId);
+  if (!gid || !pid) return;
+  const col = await orderLines();
+  await col.deleteMany({ groupOrderId: gid, participantId: pid });
+  await col.updateMany({ groupOrderId: gid, sharedWith: pid }, { $pull: { sharedWith: pid } });
+}
+
+/** Admin: sets who shares a line's cost (empty list = not shared). */
+export async function setLineSharedWith(groupOrderId: string, lineId: string, participantIds: string[]): Promise<boolean> {
+  const gid = toObjectId(groupOrderId);
+  const _id = toObjectId(lineId);
+  if (!gid || !_id) return false;
+  const ids = participantIds.map(toObjectId).filter((x): x is ObjectId => x !== null);
+  const col = await orderLines();
+  const res = await col.updateOne(
+    { _id, groupOrderId: gid },
+    ids.length > 0 ? { $set: { sharedWith: ids, updatedAt: new Date() } } : { $unset: { sharedWith: "" }, $set: { updatedAt: new Date() } },
+  );
+  return res.matchedCount === 1;
+}

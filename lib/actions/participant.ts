@@ -6,6 +6,7 @@ import { clearParticipantCookie, getCurrentParticipant, setParticipantCookie } f
 import {
   getGroupOrder,
   getGroupOrderByShortCode,
+  setConfirmation,
   setPaymentChoice,
 } from "@/lib/data/groupOrders";
 import { addLine, getLine, listLinesForParticipant, removeLine, updateLine } from "@/lib/data/orderLines";
@@ -134,6 +135,7 @@ export async function addLineAction(input: {
       quantity,
       ...(note ? { note } : {}),
     });
+    await setConfirmation(order._id.toString(), person._id.toString(), false);
     revalidateOrderPages(order);
     return { ok: true, data: { line: serializeLine(line) } };
   } catch (err) {
@@ -176,6 +178,7 @@ export async function updateLineAction(
 
     const ok = await updateLine(lineId, person._id.toString(), parsed.data);
     if (!ok) return { ok: false, error: "Item not found" };
+    await setConfirmation(order._id.toString(), person._id.toString(), false);
     revalidateOrderPages(order);
     return { ok: true };
   } catch (err) {
@@ -197,6 +200,7 @@ export async function removeLineAction(lineId: string): Promise<ActionResult> {
 
     const ok = await removeLine(lineId, person._id.toString());
     if (!ok) return { ok: false, error: "Item not found" };
+    await setConfirmation(order._id.toString(), person._id.toString(), false);
     revalidateOrderPages(order);
     return { ok: true };
   } catch (err) {
@@ -231,5 +235,31 @@ export async function choosePaymentMethodAction(input: {
   } catch (err) {
     console.error("choosePaymentMethodAction failed", err);
     return { ok: false, error: "Could not save your choice. Please try again." };
+  }
+}
+
+/**
+ * "Confirm my order" (or undo it). Only while the order is open and the participant
+ * has items; changing the cart afterwards clears the confirmation.
+ */
+export async function confirmOrderAction(input: { shortCode: string; confirmed: boolean }): Promise<ActionResult> {
+  try {
+    const parsed = z.object({ shortCode: z.string().min(1).max(64), confirmed: z.boolean() }).safeParse(input);
+    if (!parsed.success) return { ok: false, error: "Something went wrong. Please try again." };
+    const person = await getCurrentParticipant();
+    if (!person) return { ok: false, error: NOT_JOINED };
+    const order = await getGroupOrderByShortCode(parsed.data.shortCode);
+    if (!order) return { ok: false, error: "Order not found" };
+    if (order.status === "closed") return { ok: false, error: ORDER_CLOSED };
+    if (parsed.data.confirmed) {
+      const lines = await listLinesForParticipant(order._id.toString(), person._id.toString());
+      if (lines.length === 0) return { ok: false, error: "Add something to your order first" };
+    }
+    await setConfirmation(order._id.toString(), person._id.toString(), parsed.data.confirmed);
+    revalidateOrderPages(order);
+    return { ok: true };
+  } catch (err) {
+    console.error("confirmOrderAction failed", err);
+    return { ok: false, error: "Could not save. Please try again." };
   }
 }

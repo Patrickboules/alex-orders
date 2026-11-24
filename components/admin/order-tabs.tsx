@@ -7,11 +7,17 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/card";
 import { cn } from "@/components/ui/cn";
 import { CopyButton } from "@/components/ui/copy-button";
-import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
+import { ShareNote } from "@/components/order/share-note";
 import { Segmented, TabPanel, Tabs, useTabsId } from "@/components/ui/tabs";
-import { setPaymentAction } from "@/lib/actions/groupOrders";
+import {
+  removeLineAdminAction,
+  removeParticipantAdminAction,
+  setLineSharingAction,
+  setPaymentAction,
+} from "@/lib/actions/groupOrders";
 import { formatEGP } from "@/lib/money";
-import type { PaymentMethod, Receipt, RegroupedOrder } from "@/lib/types";
+import type { PaymentMethod, Receipt, ReceiptLine, RegroupedOrder } from "@/lib/types";
 
 type Tab = "participants" | "regrouped" | "people" | "payments";
 
@@ -66,7 +72,7 @@ export function OrderTabs({
         ) : tab === "regrouped" ? (
           <Regrouped regrouped={regrouped} text={regroupedText} />
         ) : tab === "people" ? (
-          <ByPerson receipts={receipts} />
+          <ByPerson orderId={orderId} receipts={receipts} />
         ) : (
           <Payments orderId={orderId} receipts={receipts} paidCount={paidCount} collected={collected} outstanding={outstanding} />
         )}
@@ -78,12 +84,21 @@ export function OrderTabs({
 /* ---------------- Participants ---------------- */
 
 function Participants({ receipts }: { receipts: Receipt[] }) {
+  const confirmed = receipts.filter((r) => r.confirmed).length;
   return (
+    <div>
+    <p className="mb-3 text-sm">
+      <span className="num font-semibold">
+        {confirmed} of {receipts.length}
+      </span>{" "}
+      <span className="text-ink-2">confirmed their order</span>
+    </p>
     <div className="overflow-x-auto rounded-[var(--radius-box)] border border-line">
       <table className="w-full text-sm">
         <thead className="border-b border-line bg-wash text-ink-2">
           <tr>
             <th scope="col" className="px-4 py-2.5 text-start font-medium">Name</th>
+            <th scope="col" className="px-4 py-2.5 text-start font-medium">Status</th>
             <th scope="col" className="px-4 py-2.5 text-end font-medium">Items</th>
             <th scope="col" className="px-4 py-2.5 text-end font-medium">Subtotal</th>
             <th scope="col" className="px-4 py-2.5 text-end font-medium">Total</th>
@@ -93,6 +108,9 @@ function Participants({ receipts }: { receipts: Receipt[] }) {
           {receipts.map((r) => (
             <tr key={r.participantId}>
               <td className="px-4 py-3 font-medium" dir="auto">{r.participantName}</td>
+              <td className={cn("px-4 py-3 whitespace-nowrap", r.confirmed ? "font-medium text-accent" : "text-ink-3")}>
+                {r.confirmed ? "Confirmed ✓" : "Still choosing"}
+              </td>
               <td className="num px-4 py-3 text-end">{itemsOf(r)}</td>
               <td className="num px-4 py-3 text-end text-ink-2">{formatEGP(r.subtotal)}</td>
               <td className="num px-4 py-3 text-end font-medium">{formatEGP(r.total)}</td>
@@ -102,12 +120,14 @@ function Participants({ receipts }: { receipts: Receipt[] }) {
         <tfoot className="border-t border-line-strong">
           <tr>
             <th scope="row" className="px-4 py-3 text-start font-medium">Everyone</th>
+            <td />
             <td className="num px-4 py-3 text-end">{receipts.reduce((n, r) => n + itemsOf(r), 0)}</td>
             <td className="num px-4 py-3 text-end text-ink-2">{formatEGP(receipts.reduce((n, r) => n + r.subtotal, 0))}</td>
             <td className="num px-4 py-3 text-end font-semibold">{formatEGP(receipts.reduce((n, r) => n + r.total, 0))}</td>
           </tr>
         </tfoot>
       </table>
+    </div>
     </div>
   );
 }
@@ -180,63 +200,252 @@ function Regrouped({ regrouped, text }: { regrouped: RegroupedOrder; text: strin
 
 /* ---------------- By person ---------------- */
 
-function ByPerson({ receipts }: { receipts: Receipt[] }) {
+type PendingRemove = { kind: "line"; lineId: string; label: string } | { kind: "person"; participantId: string; label: string };
+
+function ByPerson({ orderId, receipts }: { orderId: string; receipts: Receipt[] }) {
+  const router = useRouter();
+  const [removing, setRemoving] = useState<PendingRemove | null>(null);
+  const [splitting, setSplitting] = useState<{ line: ReceiptLine; ownerId: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+
+  function confirmRemove() {
+    if (!removing) return;
+    setError(null);
+    start(async () => {
+      const res =
+        removing.kind === "line"
+          ? await removeLineAdminAction(orderId, removing.lineId)
+          : await removeParticipantAdminAction(orderId, removing.participantId);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setRemoving(null);
+      router.refresh();
+    });
+  }
+
   return (
-    <ul className="grid gap-4 md:grid-cols-2">
-      {receipts.map((r) => (
-        <li key={r.participantId} className="rounded-[var(--radius-box)] border border-line p-4">
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="font-semibold" dir="auto">
-              {r.participantName}
-            </p>
-            <a href={`tel:${r.participantPhone}`} className="num text-sm text-ink-2 underline-offset-4 hover:underline" dir="ltr">
-              {r.participantPhone}
-            </a>
-          </div>
-          <ul className="mt-3 space-y-1.5 border-t border-dashed border-line-strong pt-3 text-sm">
-            {r.lines.map((l) => (
-              <li key={l.lineId}>
-                <div className="flex items-baseline gap-2">
-                  <span className="num shrink-0 text-ink-2">{l.quantity} ×</span>
-                  <span className="min-w-0" dir="auto">
-                    {l.name}
-                  </span>
-                  <span aria-hidden="true" className="leader" />
-                  <span className="num shrink-0">{formatEGP(l.lineTotal)}</span>
+    <>
+      <ul className="grid gap-4 md:grid-cols-2">
+        {receipts.map((r) => (
+          <li key={r.participantId} className="rounded-[var(--radius-box)] border border-line p-4">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="font-semibold" dir="auto">
+                {r.participantName}
+                {r.confirmed ? <span className="ms-2 text-xs font-medium text-accent">Confirmed ✓</span> : null}
+              </p>
+              <a href={`tel:${r.participantPhone}`} className="num text-sm text-ink-2 underline-offset-4 hover:underline" dir="ltr">
+                {r.participantPhone}
+              </a>
+            </div>
+            <ul className="mt-3 space-y-2.5 border-t border-dashed border-line-strong pt-3 text-sm">
+              {r.lines.map((l) => (
+                <li key={l.lineId}>
+                  <div className="flex items-baseline gap-2">
+                    <span className="num shrink-0 text-ink-2">{l.quantity} ×</span>
+                    <span className="min-w-0" dir="auto">
+                      {l.name}
+                    </span>
+                    <span aria-hidden="true" className="leader" />
+                    <span className="num shrink-0">{formatEGP(l.lineTotal)}</span>
+                  </div>
+                  {l.note ? (
+                    <p className="ps-7 text-ink-2" dir="auto">
+                      {l.note}
+                    </p>
+                  ) : null}
+                  <ShareNote line={l} className="ps-7 text-xs text-accent" />
+                  {l.isOwner ? (
+                    <div className="mt-1 flex gap-1 ps-6">
+                      <Button variant="ghost" size="sm" onClick={() => setSplitting({ line: l, ownerId: r.participantId })}>
+                        {l.shareCount ? "Change split" : "Split"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-danger!"
+                        onClick={() => setRemoving({ kind: "line", lineId: l.lineId, label: `${l.quantity} × ${l.name}` })}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            <dl className="mt-3 space-y-1 border-t border-line pt-3 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-ink-2">Subtotal</dt>
+                <dd className="num">{formatEGP(r.subtotal)}</dd>
+              </div>
+              {r.multiplier !== 1 ? (
+                <div className="flex justify-between">
+                  <dt className="text-ink-2">Tax &amp; service (×{r.multiplier.toFixed(2)})</dt>
+                  <dd className="num">{formatEGP(r.total - (r.fee ?? 0) - r.subtotal)}</dd>
                 </div>
-                {l.note ? (
-                  <p className="ps-7 text-ink-2" dir="auto">
-                    {l.note}
-                  </p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-          <dl className="mt-3 space-y-1 border-t border-line pt-3 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-ink-2">Subtotal</dt>
-              <dd className="num">{formatEGP(r.subtotal)}</dd>
-            </div>
-            {r.multiplier !== 1 ? (
-              <div className="flex justify-between">
-                <dt className="text-ink-2">Tax &amp; service (×{r.multiplier.toFixed(2)})</dt>
-                <dd className="num">{formatEGP(r.total - (r.fee ?? 0) - r.subtotal)}</dd>
+              ) : null}
+              {r.fee ? (
+                <div className="flex justify-between">
+                  <dt className="text-ink-2">Fee</dt>
+                  <dd className="num">{formatEGP(r.fee)}</dd>
+                </div>
+              ) : null}
+              <div className="flex justify-between font-semibold">
+                <dt>Total</dt>
+                <dd className="num">{formatEGP(r.total)}</dd>
               </div>
-            ) : null}
-            {r.fee ? (
-              <div className="flex justify-between">
-                <dt className="text-ink-2">Fee</dt>
-                <dd className="num">{formatEGP(r.fee)}</dd>
-              </div>
-            ) : null}
-            <div className="flex justify-between font-semibold">
-              <dt>Total</dt>
-              <dd className="num">{formatEGP(r.total)}</dd>
+            </dl>
+            <div className="mt-3 border-t border-line pt-2 text-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-danger!"
+                onClick={() => setRemoving({ kind: "person", participantId: r.participantId, label: r.participantName })}
+              >
+                Remove person
+              </Button>
             </div>
-          </dl>
-        </li>
-      ))}
-    </ul>
+          </li>
+        ))}
+      </ul>
+
+      <ConfirmDialog
+        open={removing !== null}
+        onClose={() => {
+          setRemoving(null);
+          setError(null);
+        }}
+        onConfirm={confirmRemove}
+        title={removing?.kind === "person" ? `Remove ${removing.label}?` : "Remove this item?"}
+        confirmLabel="Remove"
+        tone="danger"
+        pending={pending}
+        error={error}
+      >
+        {removing?.kind === "person" ? (
+          <p>All their items are removed from this order, and they’re taken off any item they were sharing.</p>
+        ) : removing ? (
+          <p dir="auto">{removing.label}</p>
+        ) : null}
+      </ConfirmDialog>
+
+      {splitting ? (
+        <SplitDialog
+          key={splitting.line.lineId}
+          orderId={orderId}
+          line={splitting.line}
+          ownerId={splitting.ownerId}
+          people={receipts.map((r) => ({ id: r.participantId, name: r.participantName }))}
+          onClose={() => setSplitting(null)}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function SplitDialog({
+  orderId,
+  line,
+  ownerId,
+  people,
+  onClose,
+}: {
+  orderId: string;
+  line: ReceiptLine;
+  ownerId: string;
+  people: { id: string; name: string }[];
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [chosen, setChosen] = useState<Set<string>>(new Set((line.sharedWithIds ?? []).filter((id) => id !== ownerId)));
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const owner = people.find((p) => p.id === ownerId);
+  const others = people.filter((p) => p.id !== ownerId);
+  const full = line.unitPrice * line.quantity;
+  const payers = chosen.size + 1;
+
+  function toggle(id: string) {
+    setChosen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function save() {
+    setError(null);
+    start(async () => {
+      const res = await setLineSharingAction(orderId, line.lineId, [...chosen]);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      onClose();
+      router.refresh();
+    });
+  }
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Split the cost"
+      description={
+        <span dir="auto">
+          {line.quantity} × {line.name} · <span className="num">{formatEGP(full)}</span>
+        </span>
+      }
+      footer={
+        <div className="space-y-2">
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
+          <p className="text-sm text-ink-2">
+            {payers > 1 ? (
+              <>
+                Each of <span className="num">{payers}</span> people pays about{" "}
+                <span className="num font-medium text-ink">{formatEGP(Math.ceil(full / payers))}</span>
+              </>
+            ) : (
+              <>Only {owner?.name ?? "the owner"} pays</>
+            )}
+          </p>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button pending={pending} onClick={save}>
+              Save split
+            </Button>
+          </div>
+        </div>
+      }
+    >
+      <p className="mb-2 text-sm text-ink-2" dir="auto">
+        {owner?.name ?? "The owner"} shares it with:
+      </p>
+      {others.length === 0 ? (
+        <p className="text-sm text-ink-2">No one else is in this order yet.</p>
+      ) : (
+        <ul className="divide-y divide-line">
+          {others.map((p) => (
+            <li key={p.id}>
+              <label className="flex min-h-11 cursor-pointer items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={chosen.has(p.id)}
+                  onChange={() => toggle(p.id)}
+                  className="size-4 accent-[var(--accent)]"
+                />
+                <span dir="auto">{p.name}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Dialog>
   );
 }
 

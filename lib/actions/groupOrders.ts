@@ -7,11 +7,19 @@ import {
   createGroupOrder,
   getGroupOrder,
   getOpenOrderForRestaurant,
+  removeParticipantRecords,
   setGroupOrderStatus,
   setPayment,
   updateGroupOrder,
 } from "@/lib/data/groupOrders";
-import { listLinesForParticipant } from "@/lib/data/orderLines";
+import {
+  getLine,
+  listLinesForOrder,
+  listLinesInvolving,
+  removeLineInOrder,
+  removeParticipantLines,
+  setLineSharedWith,
+} from "@/lib/data/orderLines";
 import { getParticipantsByIds } from "@/lib/data/participants";
 import { getRestaurant } from "@/lib/data/restaurants";
 import { groupOrderInputSchema, multiplierSchema, objectIdStringSchema } from "@/lib/db/schemas";
@@ -173,7 +181,7 @@ export async function setPaymentAction(
     } else {
       const [person] = await getParticipantsByIds([participantId]);
       if (!person) return { ok: false, error: "Participant not found" };
-      const lines = await listLinesForParticipant(orderId, participantId);
+      const lines = await listLinesInvolving(orderId, participantId);
       const receipt = calculateReceipt(order, lines, person);
       await setPayment(orderId, participantId, {
         paidMethod: m.data,
@@ -185,5 +193,74 @@ export async function setPaymentAction(
   } catch (err) {
     console.error("setPaymentAction failed", err);
     return { ok: false, error: "Could not save the payment. Please try again." };
+  }
+}
+
+/** Admin: removes one item from someone's order. */
+export async function removeLineAdminAction(orderId: string, lineId: string): Promise<ActionResult> {
+  try {
+    const admin = await getCurrentAdmin();
+    if (!admin) return { ok: false, error: NOT_AUTHORIZED };
+    const order = await loadOrder(orderId);
+    if (!order) return { ok: false, error: "Order not found" };
+    if (!objectIdStringSchema.safeParse(lineId).success || !(await removeLineInOrder(orderId, lineId))) {
+      return { ok: false, error: "Item not found" };
+    }
+    revalidateOrder(order);
+    return { ok: true };
+  } catch (err) {
+    console.error("removeLineAdminAction failed", err);
+    return { ok: false, error: "Could not remove the item. Please try again." };
+  }
+}
+
+/** Admin: removes a person and all their items from the order (and from items shared with them). */
+export async function removeParticipantAdminAction(orderId: string, participantId: string): Promise<ActionResult> {
+  try {
+    const admin = await getCurrentAdmin();
+    if (!admin) return { ok: false, error: NOT_AUTHORIZED };
+    if (!objectIdStringSchema.safeParse(participantId).success) return { ok: false, error: "Participant not found" };
+    const order = await loadOrder(orderId);
+    if (!order) return { ok: false, error: "Order not found" };
+    await removeParticipantLines(orderId, participantId);
+    await removeParticipantRecords(orderId, participantId);
+    revalidateOrder(order);
+    return { ok: true };
+  } catch (err) {
+    console.error("removeParticipantAdminAction failed", err);
+    return { ok: false, error: "Could not remove this person. Please try again." };
+  }
+}
+
+const shareSchema = z.array(objectIdStringSchema).max(50);
+
+/**
+ * Admin: splits an item's cost equally between its owner and the chosen people
+ * (who must already be in the order). An empty list stops sharing.
+ */
+export async function setLineSharingAction(orderId: string, lineId: string, participantIds: string[]): Promise<ActionResult> {
+  try {
+    const admin = await getCurrentAdmin();
+    if (!admin) return { ok: false, error: NOT_AUTHORIZED };
+    const ids = shareSchema.safeParse(participantIds);
+    if (!ids.success || !objectIdStringSchema.safeParse(lineId).success) return { ok: false, error: "Choose who shares it" };
+    const order = await loadOrder(orderId);
+    if (!order) return { ok: false, error: "Order not found" };
+    const line = await getLine(lineId);
+    if (!line || !line.groupOrderId.equals(order._id)) return { ok: false, error: "Item not found" };
+
+    const inOrder = new Set(
+      (await listLinesForOrder(orderId)).flatMap((l) => [l.participantId.toString(), ...(l.sharedWith ?? []).map(String)]),
+    );
+    const owner = line.participantId.toString();
+    const sharers = [...new Set(ids.data)].filter((id) => id !== owner);
+    if (sharers.some((id) => !inOrder.has(id))) return { ok: false, error: "Only people in this order can share an item" };
+
+    await setLineSharedWith(orderId, lineId, sharers);
+    revalidateOrder(order);
+    return { ok: true };
+  } catch (err) {
+    console.error("setLineSharingAction failed", err);
+    return { ok: false, error: "Could not split the item. Please try again." };
   }
 }

@@ -1,9 +1,9 @@
 // Props shapes for UI components. Pages map query results onto these, so the
 // components stay independent of how the backend names things.
 
-import type { Menu, MenuStatus, Multiplier, PaymentMethod, Receipt } from "@/lib/types";
+import type { Menu, MenuStatus, Multiplier, PaymentMethod, Receipt, ReceiptLine } from "@/lib/types";
 
-export type { Menu, Multiplier, PaymentMethod, Receipt };
+export type { Menu, Multiplier, PaymentMethod, Receipt, ReceiptLine };
 
 export interface RestaurantCardView {
   id: string;

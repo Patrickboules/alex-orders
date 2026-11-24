@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { Price, itemFromPrice } from "@/components/menu/price";
+import { ConfirmOrder } from "@/components/order/confirm-order";
 import { PaymentChoice } from "@/components/order/payment-choice";
+import { ShareNote } from "@/components/order/share-note";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import { Sheet } from "@/components/ui/dialog";
@@ -481,7 +483,8 @@ function CartSheet({
 }) {
   // The server receipt can lag a moment behind optimistic edits; only show its
   // totals when it matches what is on screen.
-  const receiptInSync = receipt && receipt.subtotal === subtotal;
+  const receiptInSync = receipt && receipt.ownedFullSubtotal === subtotal;
+  const sharedWithMe = receipt?.lines.filter((l) => !l.isOwner) ?? [];
 
   return (
     <Sheet
@@ -494,7 +497,7 @@ function CartSheet({
           <div className="space-y-1 text-sm">
             <div className="flex justify-between">
               <span className="text-ink-2">Subtotal</span>
-              <span className="num">{formatEGP(subtotal)}</span>
+              <span className="num">{formatEGP(receiptInSync ? receipt.subtotal : subtotal)}</span>
             </div>
             {receiptInSync ? (
               <>
@@ -540,8 +543,26 @@ function CartSheet({
               <CartRow key={line.id} line={line} onUpdate={onUpdate} onRemove={onRemove} />
             ))}
           </ul>
+          {sharedWithMe.length > 0 ? (
+            <div className="mt-4 border-t border-line pt-4">
+              <p className="text-sm font-semibold">Shared with you</p>
+              <ul className="mt-2 space-y-2">
+                {sharedWithMe.map((l) => (
+                  <li key={l.lineId}>
+                    <div className="flex items-baseline justify-between gap-3 text-sm">
+                      <span dir="auto">
+                        {l.quantity} × {l.name}
+                      </span>
+                      <span className="num shrink-0">{formatEGP(l.lineTotal)}</span>
+                    </div>
+                    <ShareNote line={l} className="text-xs text-ink-2" />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {receipt ? (
-            <div className="mt-4 border-t border-line pt-5 pb-2">
+            <div className="mt-4 space-y-5 border-t border-line pt-5 pb-2">
               <PaymentChoice
                 key={receipt.paymentChoice ?? "none"}
                 shortCode={shortCode}
@@ -549,6 +570,7 @@ function CartSheet({
                 payment={payment}
                 initialChoice={receipt.paymentChoice}
               />
+              <ConfirmOrder shortCode={shortCode} confirmed={receipt.confirmed} />
             </div>
           ) : null}
         </>

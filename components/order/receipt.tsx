@@ -1,4 +1,5 @@
 import { PaymentChoice } from "@/components/order/payment-choice";
+import { ShareNote } from "@/components/order/share-note";
 import type { PaymentInfo, Receipt } from "@/components/view-types";
 import { formatEGP } from "@/lib/money";
 
@@ -67,6 +68,7 @@ export function ReceiptSlip({
                   {line.note}
                 </p>
               ) : null}
+              <ShareNote line={line} />
             </li>
           ))}
         </ul>
